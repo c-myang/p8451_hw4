@@ -1,0 +1,54 @@
+---
+title: "Assignment 4"
+output: html_document
+date: "2023-02-14"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, 
+                      warning = F,
+                      message = F)
+```
+
+
+```{r load_packages}
+library(tidyverse)
+library(ggbiplot)
+library(stats)
+library(factoextra)
+library(cluster)
+```
+
+## Part I: Implementing a Simple Prediction Pipeline
+
+The New York City Department of Health administered a questionnaire on general health and physical activity among residents. 
+
+```{r load_data}
+PAT_df = readr::read_csv("./class4_p1.csv") %>% 
+  dplyr::rename(id = `...1`,
+                htn = chronic1,
+                diabetes = chronic3,
+                asthma = chronic4,
+                tobacco = tobacco1,
+                alcohol = alcohol1,
+                pa_min = gpaq8totmin,
+                walk_days = gpaq11days,
+                physical_act = habits5,
+                diet = habits7,
+                gender = dem3,
+                hisp_lat = dem4,
+                us_born = dem8) %>% 
+  mutate_at(vars(htn:asthma, hisp_lat, us_born), ~ ifelse(. == 1, "Yes", "No")) %>% 
+  mutate_at(vars(tobacco:alcohol), ~ case_when(. == 1 ~ "Most days", 
+                                               . == 2 ~ "Some days", 
+                                               . == 3 ~ "Never")) %>% 
+  mutate_at(vars(htn:asthma, tobacco:alcohol, physical_act:us_born), ~ as.factor(.)) %>% 
+  mutate_at(vars(htn:asthma, hisp_lat, us_born), ~ fct_relevel(., "Yes")) %>% 
+  mutate_at(vars(tobacco:alcohol), ~ fct_relevel(., c("Most days", "Some days")))
+
+levels(PAT_df$tobacco)
+
+```
+
+## Part II: Conducting an Unsupervised Analysis
+

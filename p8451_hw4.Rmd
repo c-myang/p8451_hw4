@@ -13,6 +13,7 @@ knitr::opts_chunk$set(echo = TRUE,
 
 ```{r load_packages}
 library(tidyverse)
+library(caret)
 library(ggbiplot)
 library(stats)
 library(factoextra)
@@ -38,17 +39,44 @@ PAT_df = readr::read_csv("./class4_p1.csv") %>%
                 gender = dem3,
                 hisp_lat = dem4,
                 us_born = dem8) %>% 
-  mutate_at(vars(htn:asthma, hisp_lat, us_born), ~ ifelse(. == 1, "Yes", "No")) %>% 
-  mutate_at(vars(tobacco:alcohol), ~ case_when(. == 1 ~ "Most days", 
-                                               . == 2 ~ "Some days", 
-                                               . == 3 ~ "Never")) %>% 
-  mutate_at(vars(htn:asthma, tobacco:alcohol, physical_act:us_born), ~ as.factor(.)) %>% 
-  mutate_at(vars(htn:asthma, hisp_lat, us_born), ~ fct_relevel(., "Yes")) %>% 
-  mutate_at(vars(tobacco:alcohol), ~ fct_relevel(., c("Most days", "Some days")))
+  mutate_at(vars(htn:asthma, tobacco:alcohol, physical_act:povertygroup), ~ as.factor(.)) 
 
-levels(PAT_df$tobacco)
+summary(PAT_df) %>% knitr::kable()
+```
+
+```{r partition_data}
+set.seed(123)
+
+#Drop category and ID variable and remove missings
+PAT_df = PAT_df %>% 
+  select(-id) %>% 
+  na.omit()
+
+#Finding correlated predictors
+PAT_numeric = PAT_df %>% dplyr::select(where(is.numeric))
+correlations = cor(PAT_numeric, use="complete.obs")
+high_correlations = findCorrelation(correlations, cutoff=0.4)
+
+#Remove highly correlated features
+new.data.low.corr = PAT_numeric[,-high_correlations]
+
+#Centering and Scaling
+set.up.preprocess = preProcess(PAT_numeric, method=c("center", "scale"))
+
+#Output pre-processed values
+transformed.vals = predict(set.up.preprocess, PAT_numeric)
+
+#Creating balanced partitions in the data
+train.index = createDataPartition(PAT_df$healthydays, p = 0.7, list = FALSE)
+
+hcvdat.train = PAT_df[train.index,]
+hcvdat.test = PAT_df[-train.index,]
+
+summary(hcvdat.test)
+summary(hcvdat.train)
 
 ```
+
 
 ## Part II: Conducting an Unsupervised Analysis
 

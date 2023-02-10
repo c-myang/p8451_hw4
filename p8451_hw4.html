@@ -365,6 +365,8 @@ library(cluster)</code></pre>
 <h2>Part I: Implementing a Simple Prediction Pipeline</h2>
 <p>The New York City Department of Health administered a questionnaire
 on general health and physical activity among residents.</p>
+<div id="step-1-load-data-and-prepare-for-analysis" class="section level3">
+<h3>Step 1: Load data and prepare for analysis</h3>
 <pre class="r"><code>PAT_df = readr::read_csv(&quot;./class4_p1.csv&quot;) %&gt;% 
   dplyr::rename(id = `...1`,
                 htn = chronic1,
@@ -568,6 +570,9 @@ summary(PAT_df) %&gt;% knitr::kable()</code></pre>
 </tr>
 </tbody>
 </table>
+</div>
+<div id="step-2-partitioning-the-data" class="section level3">
+<h3>Step 2: Partitioning the data</h3>
 <pre class="r"><code>set.seed(123)
 
 #Drop category and ID variable and remove missings
@@ -575,70 +580,50 @@ PAT_df = PAT_df %&gt;%
   select(-id) %&gt;% 
   na.omit()
 
-#Finding correlated predictors
-PAT_numeric = PAT_df %&gt;% dplyr::select(where(is.numeric))
-correlations = cor(PAT_numeric, use=&quot;complete.obs&quot;)
-high_correlations = findCorrelation(correlations, cutoff=0.4)
-
-#Remove highly correlated features
-new.data.low.corr = PAT_numeric[,-high_correlations]
-
 #Centering and Scaling
-set.up.preprocess = preProcess(PAT_numeric, method=c(&quot;center&quot;, &quot;scale&quot;))
+PAT_numeric &lt;- PAT_df %&gt;% dplyr::select(where(is.numeric))
+set_up_preprocess = preProcess(PAT_numeric, method = c(&quot;center&quot;, &quot;scale&quot;))
 
 #Output pre-processed values
-transformed.vals = predict(set.up.preprocess, PAT_numeric)
+transformed_vals = predict(set_up_preprocess, PAT_numeric)
 
 #Creating balanced partitions in the data
-train.index = createDataPartition(PAT_df$healthydays, p = 0.7, list = FALSE)
+train_index = createDataPartition(PAT_df$healthydays, p = 0.7, list = FALSE)
 
-hcvdat.train = PAT_df[train.index,]
-hcvdat.test = PAT_df[-train.index,]
+PAT_train = PAT_df[train_index,]
+PAT_test = PAT_df[-train_index,]
 
-summary(hcvdat.test)</code></pre>
-<pre><code>##  htn     diabetes asthma       bmi        tobacco alcohol     pa_min      
-##  1:181   1: 70    1: 44   Min.   :10.98   1: 69   1: 19   Min.   :  0.00  
-##  2:477   2:588    2:614   1st Qu.:23.03   2: 47   2:213   1st Qu.:  0.00  
-##                           Median :26.58   3:542   3:426   Median :  0.00  
-##                           Mean   :27.30                   Mean   : 45.91  
-##                           3rd Qu.:29.95                   3rd Qu.: 60.00  
-##                           Max.   :72.76                   Max.   :720.00  
-##    walk_days     physical_act diet    agegroup gender  hisp_lat us_born
-##  Min.   :0.000   1:193        1: 80   1: 49    1:263   1:135    1:430  
-##  1st Qu.:2.000   2:324        2:200   2:218    2:395   2:523    2:228  
-##  Median :5.000   3:108        3:224   3:247                            
-##  Mean   :4.195   4: 33        4:123   4:144                            
-##  3rd Qu.:7.000                5: 31                                    
-##  Max.   :7.000                                                         
-##  povertygroup  healthydays  
-##  1:126        Min.   : 0.0  
-##  2:106        1st Qu.:27.0  
-##  3:109        Median :30.0  
-##  4:111        Mean   :26.5  
-##  5:144        3rd Qu.:30.0  
-##  6: 62        Max.   :30.0</code></pre>
-<pre class="r"><code>summary(hcvdat.train)</code></pre>
-<pre><code>##  htn      diabetes asthma        bmi        tobacco  alcohol      pa_min      
-##  1: 474   1: 180   1:  96   Min.   : 9.09   1: 168   1:  48   Min.   :  0.00  
-##  2:1063   2:1357   2:1441   1st Qu.:23.38   2:  71   2: 448   1st Qu.:  0.00  
-##                             Median :26.57   3:1298   3:1041   Median :  0.00  
-##                             Mean   :27.48                     Mean   : 44.48  
-##                             3rd Qu.:30.25                     3rd Qu.: 60.00  
-##                             Max.   :99.83                     Max.   :900.00  
-##    walk_days     physical_act diet    agegroup gender  hisp_lat us_born
-##  Min.   :0.000   1:468        1:203   1:118    1:641   1: 341   1:969  
-##  1st Qu.:2.000   2:725        2:413   2:447    2:896   2:1196   2:568  
-##  Median :5.000   3:272        3:569   3:604                            
-##  Mean   :4.262   4: 72        4:280   4:368                            
-##  3rd Qu.:7.000                5: 72                                    
-##  Max.   :7.000                                                         
-##  povertygroup  healthydays   
-##  1:287        Min.   : 0.00  
-##  2:259        1st Qu.:27.00  
-##  3:262        Median :30.00  
-##  4:246        Mean   :26.39  
-##  5:362        3rd Qu.:30.00  
-##  6:121        Max.   :30.00</code></pre>
+summary(PAT_test$healthydays)</code></pre>
+<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##     0.0    27.0    30.0    26.5    30.0    30.0</code></pre>
+<pre class="r"><code>summary(PAT_train$healthydays)</code></pre>
+<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+##    0.00   27.00   30.00   26.39   30.00   30.00</code></pre>
+</div>
+<div id="step-3-construct-linear-regression-models-to-predict-healthy-days" class="section level3">
+<h3>Step 3: Construct linear regression models to predict healthy
+days</h3>
+<p>We will fit two linear models to predict the number of days in a
+month an individual reported having good physical health (feature name:
+healthydays). * Model 1: Include all features * Model 2: Include only
+habits</p>
+<pre class="r"><code>#Perform 10-fold cross-validation
+control.settings = trainControl(method = &quot;cv&quot;, number = 10)
+
+lasso = train(healthydays ~., data = PAT_train, method = &quot;glmnet&quot;, preProc=c(&quot;center&quot;, &quot;scale&quot;), trControl = control.settings)
+
+lasso$results</code></pre>
+<pre><code>##   alpha      lambda     RMSE  Rsquared      MAE    RMSESD RsquaredSD     MAESD
+## 1  0.10 0.003558898 7.247851 0.1276082 4.599872 0.4538241 0.03636591 0.3721990
+## 2  0.10 0.035588983 7.246188 0.1277349 4.595283 0.4530535 0.03665447 0.3714475
+## 3  0.10 0.355889827 7.240895 0.1276586 4.571606 0.4467655 0.04050883 0.3654022
+## 4  0.55 0.003558898 7.247616 0.1276512 4.599612 0.4539651 0.03643346 0.3721136
+## 5  0.55 0.035588983 7.242646 0.1281108 4.584170 0.4533017 0.03799576 0.3704239
+## 6  0.55 0.355889827 7.268321 0.1230567 4.596274 0.4401921 0.04779752 0.3410128
+## 7  1.00 0.003558898 7.247225 0.1276747 4.598419 0.4538422 0.03654473 0.3718213
+## 8  1.00 0.035588983 7.241766 0.1280949 4.575270 0.4535710 0.03970645 0.3696850
+## 9  1.00 0.355889827 7.314539 0.1170871 4.660529 0.4369131 0.05184185 0.3272713</code></pre>
+</div>
 </div>
 <div id="part-ii-conducting-an-unsupervised-analysis" class="section level2">
 <h2>Part II: Conducting an Unsupervised Analysis</h2>

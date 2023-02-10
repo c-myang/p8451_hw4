@@ -24,6 +24,8 @@ library(cluster)
 
 The New York City Department of Health administered a questionnaire on general health and physical activity among residents. 
 
+### Step 1: Load data and prepare for analysis
+
 ```{r load_data}
 PAT_df = readr::read_csv("./class4_p1.csv") %>% 
   dplyr::rename(id = `...1`,
@@ -44,6 +46,8 @@ PAT_df = readr::read_csv("./class4_p1.csv") %>%
 summary(PAT_df) %>% knitr::kable()
 ```
 
+### Step 2: Partitioning the data
+
 ```{r partition_data}
 set.seed(123)
 
@@ -52,28 +56,39 @@ PAT_df = PAT_df %>%
   select(-id) %>% 
   na.omit()
 
-#Finding correlated predictors
-PAT_numeric = PAT_df %>% dplyr::select(where(is.numeric))
-correlations = cor(PAT_numeric, use="complete.obs")
-high_correlations = findCorrelation(correlations, cutoff=0.4)
-
-#Remove highly correlated features
-new.data.low.corr = PAT_numeric[,-high_correlations]
-
 #Centering and Scaling
-set.up.preprocess = preProcess(PAT_numeric, method=c("center", "scale"))
+PAT_numeric <- PAT_df %>% dplyr::select(where(is.numeric))
+set_up_preprocess = preProcess(PAT_numeric, method = c("center", "scale"))
 
 #Output pre-processed values
-transformed.vals = predict(set.up.preprocess, PAT_numeric)
+transformed_vals = predict(set_up_preprocess, PAT_numeric)
 
 #Creating balanced partitions in the data
-train.index = createDataPartition(PAT_df$healthydays, p = 0.7, list = FALSE)
+train_index = createDataPartition(PAT_df$healthydays, p = 0.7, list = FALSE)
 
-hcvdat.train = PAT_df[train.index,]
-hcvdat.test = PAT_df[-train.index,]
+PAT_train = PAT_df[train_index,]
+PAT_test = PAT_df[-train_index,]
 
-summary(hcvdat.test)
-summary(hcvdat.train)
+summary(PAT_test$healthydays)
+summary(PAT_train$healthydays)
+```
+
+### Step 3: Construct linear regression models to predict healthy days
+
+We will fit two linear models to predict the number of days in a month an individual reported having good physical health (feature name: healthydays).
+* Model 1: Include all features
+* Model 2: Include only habits
+
+```{r lm}
+#Perform 10-fold cross-validation
+control.settings = trainControl(method = "cv", number = 10)
+
+lasso = train(healthydays ~., data = PAT_train, method = "glmnet", preProc=c("center", "scale"), trControl = control.settings)
+
+lasso$results
+
+
+
 
 ```
 

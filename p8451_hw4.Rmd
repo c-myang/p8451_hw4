@@ -125,3 +125,41 @@ cbind(All_RMSE, Habits_RMSE) %>%
 
 ## Part II: Conducting an Unsupervised Analysis
 
+```{r data_load}
+USArrests = USArrests %>% na.omit()
+summary(USArrests)
+
+#Check means and SDs to determine if scaling is necessary
+colMeans(USArrests, na.rm = TRUE)
+apply(USArrests, 2, sd, na.rm = TRUE)
+
+#Centering and Scaling
+USArrests_numeric = USArrests %>% dplyr::select(where(is.numeric))
+USArrests_preprocess = preProcess(USArrests_numeric, method = c("center", "scale"))
+
+#Output pre-processed values
+transformed_USArrests = predict(USArrests_preprocess, USArrests_numeric)
+```
+
+```{r}
+# Create Dissimilarity matrix
+diss_matrix = dist(transformed_USArrests, method = "euclidean")
+
+# Hierarchical clustering using Complete Linkage
+clusters_h = hclust(diss_matrix, method = "complete")
+
+# Plot the obtained dendrogram
+plot(clusters_h, cex = 0.6, hang = -1)
+
+#create function to use within clusGap
+hclusCut <- function(x, k) list(cluster = cutree(hclust(dist(x, method = "euclidian"), method = "complete"), k = k))
+
+gap_stat <- clusGap(USArrests, FUN = hclusCut, K.max = 10, B = 50)
+fviz_gap_stat(gap_stat)
+
+#Use number of clusters from gap statistic to obtain cluster assignment for each observation
+clusters_h_7<-cutree(clusters_h, k = 3)
+table(clusters_h_7)
+
+```
+

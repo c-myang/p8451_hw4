@@ -8,10 +8,7 @@ date: "2023-02-14"
 knitr::opts_chunk$set(echo = TRUE, 
                       warning = F,
                       message = F)
-```
 
-
-```{r load_packages}
 library(tidyverse)
 library(caret)
 library(ggbiplot)
@@ -25,6 +22,8 @@ library(cluster)
 The New York City Department of Health administered a questionnaire on general health and physical activity among residents. 
 
 ### Step 1: Load data and prepare for analysis
+
+The code chunk below loads the Physical Activity and Transit (PAT) survey data, renames variables to meaningful names, and when appropriate, converts numeric variables to factors.
 
 ```{r load_data}
 PAT_df = readr::read_csv("./class4_p1.csv") %>% 
@@ -46,9 +45,13 @@ PAT_df = readr::read_csv("./class4_p1.csv") %>%
 summary(PAT_df) %>% knitr::kable()
 ```
 
-### Step 2: Partitioning the data
+Based on the summary of the output, we can see that the features BMI, `pa_min` (minutes of physical activity on chores), and `walk_days` are continuous. Meanwhile, the remaining features are factor variables (`htn`, `diabetes`, `asthma`, `tobacco`, `alcohol`, `physical_act`, `diet`, `gender`, `hisp_lat`, `us_born`, `povertygroup`).
 
-```{r partition_data}
+### Step 2: Pre-process the data
+
+Next, we will preprocess the data. The code chunk below removes the `id` feature, omits `NA` observations, and centers and scales the data.
+
+```{r preprocess}
 set.seed(123)
 
 #Drop category and ID variable and remove missings
@@ -57,39 +60,66 @@ PAT_df = PAT_df %>%
   na.omit()
 
 #Centering and Scaling
-PAT_numeric <- PAT_df %>% dplyr::select(where(is.numeric))
+PAT_numeric = PAT_df %>% dplyr::select(where(is.numeric))
 set_up_preprocess = preProcess(PAT_numeric, method = c("center", "scale"))
 
 #Output pre-processed values
 transformed_vals = predict(set_up_preprocess, PAT_numeric)
+```
 
+
+### Step 3: Partition the data
+
+```{r partition_data}
 #Creating balanced partitions in the data
 train_index = createDataPartition(PAT_df$healthydays, p = 0.7, list = FALSE)
 
 PAT_train = PAT_df[train_index,]
 PAT_test = PAT_df[-train_index,]
 
+#Check distribution of the outcome between train and test data
 summary(PAT_test$healthydays)
 summary(PAT_train$healthydays)
 ```
 
-### Step 3: Construct linear regression models to predict healthy days
+### Step 4: Construct linear regression models to predict healthy days
 
 We will fit two linear models to predict the number of days in a month an individual reported having good physical health (feature name: healthydays).
-* Model 1: Include all features
-* Model 2: Include only habits
+
+- Model 1 (`lm_all`): Include all features
+
+- Model 2 (`lm_habits`): Include only health habits and physical activity variables (tobacco + alcohol + pa_min + walk_days + physical_act + diet)
+
 
 ```{r lm}
 #Perform 10-fold cross-validation
 control.settings = trainControl(method = "cv", number = 10)
 
-lasso = train(healthydays ~., data = PAT_train, method = "glmnet", preProc=c("center", "scale"), trControl = control.settings)
+#Fit models using caret
+lm_all = train(healthydays ~., data = PAT_train, method = "lm", preProc = c("center", "scale"), trControl = control.settings)
 
-lasso$results
+lm_habits = train(healthydays ~ tobacco + alcohol + pa_min + walk_days + physical_act + diet, data = PAT_train, method = "lm", preProc = c("center", "scale"), trControl = control.settings)
 
+rbind(lm_all$results, lm_habits$results) %>% 
+  mutate(Model = c("All", "Habits")) %>% 
+  relocate(Model, .before = intercept) %>% 
+  knitr::kable()
+```
 
+Results of the cross-validated training shows the `lm_all` model has a slightly better RMSE.
 
+### Step 5: Model Evaluation
 
+```{r test}
+test_outcome1 = predict(lm_all, PAT_test)
+All_RMSE = RMSE(test_outcome, PAT_test$healthydays)
+
+test_outcome2 = predict(lm_habits, PAT_test)
+Habits_RMSE = RMSE(test_outcome2, PAT_test$healthydays)
+
+cbind(All_RMSE, Habits_RMSE) %>% 
+  as_tibble() %>% 
+  knitr::kable()
 ```
 
 

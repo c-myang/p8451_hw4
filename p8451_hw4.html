@@ -355,18 +355,15 @@ display: none;
 </div>
 
 
-<pre class="r"><code>library(tidyverse)
-library(caret)
-library(ggbiplot)
-library(stats)
-library(factoextra)
-library(cluster)</code></pre>
 <div id="part-i-implementing-a-simple-prediction-pipeline" class="section level2">
 <h2>Part I: Implementing a Simple Prediction Pipeline</h2>
 <p>The New York City Department of Health administered a questionnaire
 on general health and physical activity among residents.</p>
 <div id="step-1-load-data-and-prepare-for-analysis" class="section level3">
 <h3>Step 1: Load data and prepare for analysis</h3>
+<p>The code chunk below loads the Physical Activity and Transit (PAT)
+survey data, renames variables to meaningful names, and when
+appropriate, converts numeric variables to factors.</p>
 <pre class="r"><code>PAT_df = readr::read_csv(&quot;./class4_p1.csv&quot;) %&gt;% 
   dplyr::rename(id = `...1`,
                 htn = chronic1,
@@ -570,9 +567,20 @@ summary(PAT_df) %&gt;% knitr::kable()</code></pre>
 </tr>
 </tbody>
 </table>
+<p>Based on the summary of the output, we can see that the features BMI,
+<code>pa_min</code> (minutes of physical activity on chores), and
+<code>walk_days</code> are continuous. Meanwhile, the remaining features
+are factor variables (<code>htn</code>, <code>diabetes</code>,
+<code>asthma</code>, <code>tobacco</code>, <code>alcohol</code>,
+<code>physical_act</code>, <code>diet</code>, <code>gender</code>,
+<code>hisp_lat</code>, <code>us_born</code>,
+<code>povertygroup</code>).</p>
 </div>
-<div id="step-2-partitioning-the-data" class="section level3">
-<h3>Step 2: Partitioning the data</h3>
+<div id="step-2-pre-process-the-data" class="section level3">
+<h3>Step 2: Pre-process the data</h3>
+<p>Next, we will preprocess the data. The code chunk below removes the
+<code>id</code> feature, omits <code>NA</code> observations, and centers
+and scales the data.</p>
 <pre class="r"><code>set.seed(123)
 
 #Drop category and ID variable and remove missings
@@ -581,18 +589,21 @@ PAT_df = PAT_df %&gt;%
   na.omit()
 
 #Centering and Scaling
-PAT_numeric &lt;- PAT_df %&gt;% dplyr::select(where(is.numeric))
+PAT_numeric = PAT_df %&gt;% dplyr::select(where(is.numeric))
 set_up_preprocess = preProcess(PAT_numeric, method = c(&quot;center&quot;, &quot;scale&quot;))
 
 #Output pre-processed values
-transformed_vals = predict(set_up_preprocess, PAT_numeric)
-
-#Creating balanced partitions in the data
+transformed_vals = predict(set_up_preprocess, PAT_numeric)</code></pre>
+</div>
+<div id="step-3-partition-the-data" class="section level3">
+<h3>Step 3: Partition the data</h3>
+<pre class="r"><code>#Creating balanced partitions in the data
 train_index = createDataPartition(PAT_df$healthydays, p = 0.7, list = FALSE)
 
 PAT_train = PAT_df[train_index,]
 PAT_test = PAT_df[-train_index,]
 
+#Check distribution of the outcome between train and test data
 summary(PAT_test$healthydays)</code></pre>
 <pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
 ##     0.0    27.0    30.0    26.5    30.0    30.0</code></pre>
@@ -600,29 +611,83 @@ summary(PAT_test$healthydays)</code></pre>
 <pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
 ##    0.00   27.00   30.00   26.39   30.00   30.00</code></pre>
 </div>
-<div id="step-3-construct-linear-regression-models-to-predict-healthy-days" class="section level3">
-<h3>Step 3: Construct linear regression models to predict healthy
+<div id="step-4-construct-linear-regression-models-to-predict-healthy-days" class="section level3">
+<h3>Step 4: Construct linear regression models to predict healthy
 days</h3>
 <p>We will fit two linear models to predict the number of days in a
 month an individual reported having good physical health (feature name:
-healthydays). * Model 1: Include all features * Model 2: Include only
-habits</p>
+healthydays).</p>
+<ul>
+<li><p>Model 1 (<code>lm_all</code>): Include all features</p></li>
+<li><p>Model 2 (<code>lm_habits</code>): Include only health habits and
+physical activity variables (tobacco + alcohol + pa_min + walk_days +
+physical_act + diet)</p></li>
+</ul>
+<pre class="r"><code>modelLookup(&quot;lm&quot;)</code></pre>
+<pre><code>##   model parameter     label forReg forClass probModel
+## 1    lm intercept intercept   TRUE    FALSE     FALSE</code></pre>
 <pre class="r"><code>#Perform 10-fold cross-validation
 control.settings = trainControl(method = &quot;cv&quot;, number = 10)
 
-lasso = train(healthydays ~., data = PAT_train, method = &quot;glmnet&quot;, preProc=c(&quot;center&quot;, &quot;scale&quot;), trControl = control.settings)
+#Fit models using caret
+lm_all = train(healthydays ~., data = PAT_train, method = &quot;lm&quot;, preProc = c(&quot;center&quot;, &quot;scale&quot;), trControl = control.settings)
 
-lasso$results</code></pre>
-<pre><code>##   alpha      lambda     RMSE  Rsquared      MAE    RMSESD RsquaredSD     MAESD
-## 1  0.10 0.003558898 7.247851 0.1276082 4.599872 0.4538241 0.03636591 0.3721990
-## 2  0.10 0.035588983 7.246188 0.1277349 4.595283 0.4530535 0.03665447 0.3714475
-## 3  0.10 0.355889827 7.240895 0.1276586 4.571606 0.4467655 0.04050883 0.3654022
-## 4  0.55 0.003558898 7.247616 0.1276512 4.599612 0.4539651 0.03643346 0.3721136
-## 5  0.55 0.035588983 7.242646 0.1281108 4.584170 0.4533017 0.03799576 0.3704239
-## 6  0.55 0.355889827 7.268321 0.1230567 4.596274 0.4401921 0.04779752 0.3410128
-## 7  1.00 0.003558898 7.247225 0.1276747 4.598419 0.4538422 0.03654473 0.3718213
-## 8  1.00 0.035588983 7.241766 0.1280949 4.575270 0.4535710 0.03970645 0.3696850
-## 9  1.00 0.355889827 7.314539 0.1170871 4.660529 0.4369131 0.05184185 0.3272713</code></pre>
+lm_habits = train(healthydays ~ tobacco + alcohol + pa_min + walk_days + physical_act + diet, data = PAT_train, method = &quot;lm&quot;, preProc = c(&quot;center&quot;, &quot;scale&quot;), trControl = control.settings)
+
+rbind(lm_all$results, lm_habits$results) %&gt;% 
+  mutate(Model = c(&quot;All&quot;, &quot;Habits&quot;)) %&gt;% 
+  relocate(Model, .before = intercept) %&gt;% 
+  knitr::kable()</code></pre>
+<table style="width:100%;">
+<colgroup>
+<col width="9%" />
+<col width="13%" />
+<col width="11%" />
+<col width="13%" />
+<col width="11%" />
+<col width="13%" />
+<col width="14%" />
+<col width="13%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th align="left">Model</th>
+<th align="left">intercept</th>
+<th align="right">RMSE</th>
+<th align="right">Rsquared</th>
+<th align="right">MAE</th>
+<th align="right">RMSESD</th>
+<th align="right">RsquaredSD</th>
+<th align="right">MAESD</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">All</td>
+<td align="left">TRUE</td>
+<td align="right">7.248294</td>
+<td align="right">0.1276019</td>
+<td align="right">4.601838</td>
+<td align="right">0.4541796</td>
+<td align="right">0.0362249</td>
+<td align="right">0.3724861</td>
+</tr>
+<tr class="even">
+<td align="left">Habits</td>
+<td align="left">TRUE</td>
+<td align="right">7.423576</td>
+<td align="right">0.0862066</td>
+<td align="right">4.782161</td>
+<td align="right">0.9028666</td>
+<td align="right">0.0646592</td>
+<td align="right">0.5118404</td>
+</tr>
+</tbody>
+</table>
+<pre class="r"><code># Fit models using base R</code></pre>
+</div>
+<div id="step-5-model-evaluation" class="section level3">
+<h3>Step 5: Model Evaluation</h3>
 </div>
 </div>
 <div id="part-ii-conducting-an-unsupervised-analysis" class="section level2">

@@ -623,9 +623,6 @@ healthydays).</p>
 physical activity variables (tobacco + alcohol + pa_min + walk_days +
 physical_act + diet)</p></li>
 </ul>
-<pre class="r"><code>modelLookup(&quot;lm&quot;)</code></pre>
-<pre><code>##   model parameter     label forReg forClass probModel
-## 1    lm intercept intercept   TRUE    FALSE     FALSE</code></pre>
 <pre class="r"><code>#Perform 10-fold cross-validation
 control.settings = trainControl(method = &quot;cv&quot;, number = 10)
 
@@ -684,10 +681,34 @@ rbind(lm_all$results, lm_habits$results) %&gt;%
 </tr>
 </tbody>
 </table>
-<pre class="r"><code># Fit models using base R</code></pre>
+<p>Results of the cross-validated training shows the <code>lm_all</code>
+model has a slightly better RMSE.</p>
 </div>
 <div id="step-5-model-evaluation" class="section level3">
 <h3>Step 5: Model Evaluation</h3>
+<pre class="r"><code>test_outcome1 = predict(lm_all, PAT_test)
+All_RMSE = RMSE(test_outcome1, PAT_test$healthydays)
+
+test_outcome2 = predict(lm_habits, PAT_test)
+Habits_RMSE = RMSE(test_outcome2, PAT_test$healthydays)
+
+cbind(All_RMSE, Habits_RMSE) %&gt;% 
+  as_tibble() %&gt;% 
+  knitr::kable()</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="right">All_RMSE</th>
+<th align="right">Habits_RMSE</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="right">7.171537</td>
+<td align="right">7.386872</td>
+</tr>
+</tbody>
+</table>
 </div>
 </div>
 <div id="part-ii-conducting-an-unsupervised-analysis" class="section level2">

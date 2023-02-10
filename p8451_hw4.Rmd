@@ -112,7 +112,7 @@ Results of the cross-validated training shows the `lm_all` model has a slightly 
 
 ```{r test}
 test_outcome1 = predict(lm_all, PAT_test)
-All_RMSE = RMSE(test_outcome, PAT_test$healthydays)
+All_RMSE = RMSE(test_outcome1, PAT_test$healthydays)
 
 test_outcome2 = predict(lm_habits, PAT_test)
 Habits_RMSE = RMSE(test_outcome2, PAT_test$healthydays)

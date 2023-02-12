@@ -90,6 +90,7 @@ We will fit two linear models to predict the number of days in a month an indivi
 
 - Model 2 (`lm_habits`): Include only health habits and physical activity variables (tobacco + alcohol + pa_min + walk_days + physical_act + diet)
 
+These models will be trained using 10-fold cross validation. The data will be centered and scaled within the  `preProc` option within `train()`. 
 
 ```{r lm}
 #Perform 10-fold cross-validation
@@ -106,9 +107,11 @@ rbind(lm_all$results, lm_habits$results) %>%
   knitr::kable()
 ```
 
-Results of the cross-validated training shows the `lm_all` model has a slightly better RMSE.
+Results of the cross-validated training shows the model with all variables, `lm_all`, has a slightly lower RMSE. 
 
 ### Step 5: Model Evaluation
+
+Next, to determine the preferred prediction model, we will apply both models to the test data, and compare their performance based on the RMSE, which is an evaluation metric used for linear regression models.
 
 ```{r test}
 test_outcome1 = predict(lm_all, PAT_test)
@@ -122,26 +125,45 @@ cbind(All_RMSE, Habits_RMSE) %>%
   knitr::kable()
 ```
 
+The table shows that the `lm_all` model performs better on the test data, with an RMSE of 7.172, compared to the `lm_habits` model's RMSE of 7.413. Therefore, if I were only interested in prediction performance, I would select the linear model with all features over the linear model with health habit features to predict the number of healthy days in a month.
+
+One setting where the `lm_all` model would be useful would be in a program evaluation setting. For instance, in a health program that promotes increased physical activity, when enrolling new subjects, we could predict the number of healthy days they are predicted to have in a month at baseline, and then compare the number of observed healthy days after program participation. This provides evidence for evaluating the success of the physical activity program in improving the number of healthy days a person may have.
 
 ## Part II: Conducting an Unsupervised Analysis
 
+In Part II, we will use a data-driven hierarchical clustering approach to identify the optimal number of clusters in the R dataset, `USArrests`. The data includes the crime statistics for each of the 50 US states in 1973. Incidence of arrest, per 100,000 residents for assault, murder and rape are included along with the proportion of the population that lives in urban communities.
+
+### Transform data
+
+First, we will load the data and check the means and SD to determine whether scaling and centering our data is necessary:
+
 ```{r data_load}
 USArrests = USArrests %>% na.omit()
-summary(USArrests)
+summary(USArrests) %>% knitr::kable()
 
 #Check means and SDs to determine if scaling is necessary
-colMeans(USArrests, na.rm = TRUE)
-apply(USArrests, 2, sd, na.rm = TRUE)
+tibble(rate = c("Murder",  "Assault", "UrbanPop", "Rape"),
+       means = colMeans(USArrests, na.rm = TRUE), 
+       sd = apply(USArrests, 2, sd, na.rm = TRUE)) %>%
+  knitr::kable()
 
+```
+
+We can see that the means differ significantly across the features of murder, assault, and rape rates, as well as the urban population. Therefore, we should scale and center our features. The code chunk below centers and scales the features in the USArrests and outputs the transformed data into a `transformed_USArrests` dataframe.
+
+```{r transform}
 #Centering and Scaling
 USArrests_numeric = USArrests %>% dplyr::select(where(is.numeric))
 USArrests_preprocess = preProcess(USArrests_numeric, method = c("center", "scale"))
 
 #Output pre-processed values
 transformed_USArrests = predict(USArrests_preprocess, USArrests_numeric)
+transformed_USArrests 
 ```
 
-```{r}
+Now with the transformed USArrests data, we will conduct the hierarchical clustering analysis. The code chunk below creates a dissimilarity matrix based on **Euclidean** distances. We will then apply a **complete** linkage agglomeration method to measure the dissimilarity between clusters.
+
+```{r hclust}
 # Create Dissimilarity matrix
 diss_matrix = dist(transformed_USArrests, method = "euclidean")
 
@@ -150,14 +172,39 @@ clusters_h = hclust(diss_matrix, method = "complete")
 
 # Plot the obtained dendrogram
 plot(clusters_h, cex = 0.6, hang = -1)
+```
 
+The above dendrogram shows the result of our hierarchical clustering analysis. We can see that the most granular clusters each contain 1-2 observations, and as we move up the tree, the observations that are similar to each other are combined into branches.
+
+Finally, to determine the optimal number of clusters, we will use the gap statistic method.
+
+```{r gapstat}
 #Calculate gap statistic
-gap_stat <- clusGap(transformed_USArrests, FUN = hcut, nstart = 25, K.max = 10, B = 50)
+gap_stat = clusGap(transformed_USArrests, FUN = hcut, nstart = 25, K.max = 10, B = 50)
 fviz_gap_stat(gap_stat)
+```
 
-#Use number of clusters from gap statistic to obtain cluster assignment for each observation
+Based on the gap-statistic plot, we can see the optimal number of clusters is 3. Let's use number of clusters from gap statistic to obtain cluster assignment for each observation
+
+```{r visualize_clusters}
 clusters_h_3 = cutree(clusters_h, k = 3)
 table(clusters_h_3)
 
+plot(clusters_h, cex = 0.6)
+rect.hclust(clusters_h, k = 3, border = 2:5) 
 ```
 
+The resulting table and plot shows marked differences in the number observations per cluster, with 8 in the 1st cluster, and 31 in the third cluster. To inspect further, we can examine the feature characteristics from sample of 5 observations from each cluster in our data.
+
+```{r}
+USArrests %>%
+  mutate(cluster = clusters_h_3) %>%
+  group_by(cluster) %>% 
+  slice_sample(n = 5) %>% 
+  knitr::kable()
+
+```
+
+We can see that cluster 1 is characterized by cities with a relatively low urban population (45-60%) and higher rates of murder (10-17 per 100,000). Cluster 2 is characterized by cities with a high urban population (67-91%), higher rates of rape and assault. Finally, cluster 3 is characterized by a medium urban population, and relatively lower rates of murder, assault, and rape.
+
+Assuming these data are from 2020, we could potentially use these data to ...

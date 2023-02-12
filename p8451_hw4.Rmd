@@ -151,15 +151,13 @@ clusters_h = hclust(diss_matrix, method = "complete")
 # Plot the obtained dendrogram
 plot(clusters_h, cex = 0.6, hang = -1)
 
-#create function to use within clusGap
-hclusCut <- function(x, k) list(cluster = cutree(hclust(dist(x, method = "euclidian"), method = "complete"), k = k))
-
-gap_stat <- clusGap(USArrests, FUN = hclusCut, K.max = 10, B = 50)
+#Calculate gap statistic
+gap_stat <- clusGap(transformed_USArrests, FUN = hcut, nstart = 25, K.max = 10, B = 50)
 fviz_gap_stat(gap_stat)
 
 #Use number of clusters from gap statistic to obtain cluster assignment for each observation
-clusters_h_7<-cutree(clusters_h, k = 3)
-table(clusters_h_7)
+clusters_h_3 = cutree(clusters_h, k = 3)
+table(clusters_h_3)
 
 ```
 

@@ -1,6 +1,8 @@
 ---
 title: "Assignment 4"
-output: html_document
+output:
+  word_document: default
+  html_document: default
 date: "2023-02-14"
 ---
 
@@ -42,14 +44,14 @@ PAT_df = readr::read_csv("./class4_p1.csv") %>%
                 us_born = dem8) %>% 
   mutate_at(vars(htn:asthma, tobacco:alcohol, physical_act:povertygroup), ~ as.factor(.)) 
 
-summary(PAT_df) %>% knitr::kable()
+summary(PAT_df) %>% knitr::kable(digits = 2)
 ```
 
 Based on the summary of the output, we can see that the features BMI, `pa_min` (minutes of physical activity on chores), and `walk_days` are continuous. Meanwhile, the remaining features are factor variables (`htn`, `diabetes`, `asthma`, `tobacco`, `alcohol`, `physical_act`, `diet`, `gender`, `hisp_lat`, `us_born`, `povertygroup`).
 
 ### Step 2: Pre-process the data
 
-Next, we will preprocess the data. The code chunk below removes the `id` feature, omits `NA` observations, and centers and scales the data.
+Next, we will preprocess the data. The code chunk below removes the `id` feature, omits `NA` observations. We will also want to center and scale the data, however, the `caret` package will do this for us within the model training step.
 
 ```{r preprocess}
 set.seed(123)
@@ -78,9 +80,11 @@ PAT_train = PAT_df[train_index,]
 PAT_test = PAT_df[-train_index,]
 
 #Check distribution of the outcome between train and test data
-summary(PAT_test$healthydays)
-summary(PAT_train$healthydays)
+summary(PAT_test$healthydays) %>% knitr::kable(digits = 2)
+summary(PAT_train$healthydays) %>% knitr::kable(digits = 2)
 ```
+
+We can see that the training and testing sets have similar median, mean, and IQR ranges, indicating that the data were successfully partitioned.
 
 ### Step 4: Construct linear regression models to predict healthy days
 
@@ -104,7 +108,7 @@ lm_habits = train(healthydays ~ tobacco + alcohol + pa_min + walk_days + physica
 rbind(lm_all$results, lm_habits$results) %>% 
   mutate(Model = c("All", "Habits")) %>% 
   relocate(Model, .before = intercept) %>% 
-  knitr::kable()
+  knitr::kable(digits = 3)
 ```
 
 Results of the cross-validated training shows the model with all variables, `lm_all`, has a slightly lower RMSE. 
@@ -122,7 +126,7 @@ Habits_RMSE = RMSE(test_outcome2, PAT_test$healthydays)
 
 cbind(All_RMSE, Habits_RMSE) %>% 
   as_tibble() %>% 
-  knitr::kable()
+  knitr::kable(digits = 3)
 ```
 
 The table shows that the `lm_all` model performs better on the test data, with an RMSE of 7.172, compared to the `lm_habits` model's RMSE of 7.413. Therefore, if I were only interested in prediction performance, I would select the linear model with all features over the linear model with health habit features to predict the number of healthy days in a month.
@@ -145,7 +149,7 @@ summary(USArrests) %>% knitr::kable()
 tibble(rate = c("Murder",  "Assault", "UrbanPop", "Rape"),
        means = colMeans(USArrests, na.rm = TRUE), 
        sd = apply(USArrests, 2, sd, na.rm = TRUE)) %>%
-  knitr::kable()
+  knitr::kable(digits = 2)
 
 ```
 
@@ -158,12 +162,16 @@ USArrests_preprocess = preProcess(USArrests_numeric, method = c("center", "scale
 
 #Output pre-processed values
 transformed_USArrests = predict(USArrests_preprocess, USArrests_numeric)
-transformed_USArrests 
+transformed_USArrests %>% head()
 ```
+
+### Hierarchical clustering analysis
 
 Now with the transformed USArrests data, we will conduct the hierarchical clustering analysis. The code chunk below creates a dissimilarity matrix based on **Euclidean** distances. We will then apply a **complete** linkage agglomeration method to measure the dissimilarity between clusters.
 
 ```{r hclust}
+set.seed(123)
+
 # Create Dissimilarity matrix
 diss_matrix = dist(transformed_USArrests, method = "euclidean")
 
@@ -174,7 +182,7 @@ clusters_h = hclust(diss_matrix, method = "complete")
 plot(clusters_h, cex = 0.6, hang = -1)
 ```
 
-The above dendrogram shows the result of our hierarchical clustering analysis. We can see that the most granular clusters each contain 1-2 observations, and as we move up the tree, the observations that are similar to each other are combined into branches.
+The above dendrogram shows the result of our hierarchical clustering analysis. We can see that the most granular clusters each contain 1-2 observations, and as we move up the tree, similar observations are combined into branches.
 
 Finally, to determine the optimal number of clusters, we will use the gap statistic method.
 
@@ -184,7 +192,7 @@ gap_stat = clusGap(transformed_USArrests, FUN = hcut, nstart = 25, K.max = 10, B
 fviz_gap_stat(gap_stat)
 ```
 
-Based on the gap-statistic plot, we can see the optimal number of clusters is 3. Let's use number of clusters from gap statistic to obtain cluster assignment for each observation
+Based on the gap-statistic plot, we can see the optimal number of clusters is 3. Let's use number of clusters from gap statistic to visualize each cluster in our dendrogram.
 
 ```{r visualize_clusters}
 clusters_h_3 = cutree(clusters_h, k = 3)
@@ -196,15 +204,19 @@ rect.hclust(clusters_h, k = 3, border = 2:5)
 
 The resulting table and plot shows marked differences in the number observations per cluster, with 8 in the 1st cluster, and 31 in the third cluster. To inspect further, we can examine the feature characteristics from sample of 5 observations from each cluster in our data.
 
-```{r}
+```{r clust_table}
 USArrests %>%
   mutate(cluster = clusters_h_3) %>%
   group_by(cluster) %>% 
   slice_sample(n = 5) %>% 
   knitr::kable()
-
 ```
 
-We can see that cluster 1 is characterized by cities with a relatively low urban population (45-60%) and higher rates of murder (10-17 per 100,000). Cluster 2 is characterized by cities with a high urban population (67-91%), higher rates of rape and assault. Finally, cluster 3 is characterized by a medium urban population, and relatively lower rates of murder, assault, and rape.
+We can see that cluster 1 is characterized by cities with a relatively low urban population (45-60%) and higher rates of murder. Cluster 2 is characterized by cities with a high urban population (67-91%), higher rates of rape and assault. Finally, cluster 3 is characterized by a medium urban population, and relatively lower rates of murder, assault, and rape.
 
-Assuming these data are from 2020, we could potentially use these data to ...
+### Research Application of Clustering Analysis
+
+Assuming these data are from 2020, we could potentially use these data to identify cities that vary in key crime characteristics, and design cluster-specific crime reduction programs that best suit the crime-related features of each cluster. Our research question would be whether designing crime prevention programs according to cities' urban population, and rates of assault, rape, and murder are effective in reducing such crime rates. In this instance, clusters would serve as an exposure in identifying the appropriate crime prevention program to be applied to each city.
+
+Before conducting this research, there are clearly some ethical considerations we should consider. For instance, we should consider the inherent biases present in the data, such as the factors that may lead to over- or under-reporting of crime statistics across cities. The implications of relying on invalid, biased data in a cluster analysis may justify excessive punitive crime prevention efforts in certain cities, reinforce existing crime-related stigmas or biases of different cities, and risk deeming high-crime clusters as 'problematic' for law enforcement and policymakers. 
+

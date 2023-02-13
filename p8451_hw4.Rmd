@@ -1,5 +1,5 @@
 ---
-title: "Assignment 4"
+title: "Machine Learning for Epi: Assignment 4"
 output:
   word_document: default
   html_document: default

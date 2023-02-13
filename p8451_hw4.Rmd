@@ -60,13 +60,6 @@ set.seed(123)
 PAT_df = PAT_df %>% 
   select(-id) %>% 
   na.omit()
-
-#Centering and Scaling
-PAT_numeric = PAT_df %>% dplyr::select(where(is.numeric))
-set_up_preprocess = preProcess(PAT_numeric, method = c("center", "scale"))
-
-#Output pre-processed values
-transformed_vals = predict(set_up_preprocess, PAT_numeric)
 ```
 
 
@@ -80,21 +73,21 @@ PAT_train = PAT_df[train_index,]
 PAT_test = PAT_df[-train_index,]
 
 #Check distribution of the outcome between train and test data
-summary(PAT_test$healthydays) %>% knitr::kable(digits = 2)
-summary(PAT_train$healthydays) %>% knitr::kable(digits = 2)
+summary(PAT_test$healthydays) 
+summary(PAT_train$healthydays)
 ```
 
 We can see that the training and testing sets have similar median, mean, and IQR ranges, indicating that the data were successfully partitioned.
 
 ### Step 4: Construct linear regression models to predict healthy days
 
-We will fit two linear models to predict the number of days in a month an individual reported having good physical health (feature name: healthydays).
+We will fit two linear models to predict the number of days in a month an individual reported having good physical health (feature name: `healthydays`).
 
 - Model 1 (`lm_all`): Include all features
 
 - Model 2 (`lm_habits`): Include only health habits and physical activity variables (tobacco + alcohol + pa_min + walk_days + physical_act + diet)
 
-These models will be trained using 10-fold cross validation. The data will be centered and scaled within the  `preProc` option within `train()`. 
+These models will be trained on the training dataset using 10-fold cross validation. The data will be centered and scaled within the  `preProc` option within `train()`. 
 
 ```{r lm}
 #Perform 10-fold cross-validation
@@ -105,13 +98,14 @@ lm_all = train(healthydays ~., data = PAT_train, method = "lm", preProc = c("cen
 
 lm_habits = train(healthydays ~ tobacco + alcohol + pa_min + walk_days + physical_act + diet, data = PAT_train, method = "lm", preProc = c("center", "scale"), trControl = control.settings)
 
+# Output results
 rbind(lm_all$results, lm_habits$results) %>% 
   mutate(Model = c("All", "Habits")) %>% 
   relocate(Model, .before = intercept) %>% 
   knitr::kable(digits = 3)
 ```
 
-Results of the cross-validated training shows the model with all variables, `lm_all`, has a slightly lower RMSE. 
+Results of the cross-validated training shows the model with all variables, `lm_all`, has a slightly lower RMSE compared to the model with only health habits. However, we want to confirm this by running each model on the testing data.
 
 ### Step 5: Model Evaluation
 

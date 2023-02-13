@@ -65,6 +65,8 @@ PAT_df = PAT_df %>%
 
 ### Step 3: Partition the data
 
+The code chunk below partitions the data into training and testing sets, using a 70/30 split. 
+
 ```{r partition_data}
 #Creating balanced partitions in the data
 train_index = createDataPartition(PAT_df$healthydays, p = 0.7, list = FALSE)
@@ -206,7 +208,7 @@ USArrests %>%
   knitr::kable()
 ```
 
-We can see that cluster 1 is characterized by cities with a relatively low urban population (45-60%) and higher rates of murder. Cluster 2 is characterized by cities with a high urban population (67-91%), higher rates of rape and assault. Finally, cluster 3 is characterized by a medium urban population, and relatively lower rates of murder, assault, and rape.
+We can see that cluster 1 is characterized by cities with a relatively low urban population (45-60%) and higher rates of murder (10-17.4 per 100,000). Cluster 2 is characterized by cities with a high urban population (67-91%), higher rates of rape and assault. Finally, cluster 3 is characterized by a medium urban population (32-80%), and relatively lower rates of murder (2.2-8.5 per 100,000), assault, and rape.
 
 ### Research Application of Clustering Analysis
 
